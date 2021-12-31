@@ -37,6 +37,12 @@
 #define SC_ReadString      15
 #define SC_PrintString     16
 #define SC_RandomNum       17
+
+#define SC_CreateSemaphore  18
+#define SC_Wait             19
+#define SC_Signal           20
+
+
 #ifndef IN_ASM
 
 /* The system call interface.  These are the operations the Nachos
@@ -59,7 +65,9 @@ int RandomNum();
 void ReadString(char* buffer, int length);
 void PrintString(char* buffer);
 	
- 
+int CreateSemaphore(char *name, int semval);
+int Wait(char* name);
+int Signal(char* name);
 
 /* Address space control operations: Exit, Exec, and Join */
 
@@ -102,7 +110,7 @@ typedef int OpenFileId;
 #define ConsoleOutput	1  
  
 /* Create a Nachos file, with "name" */
-void Create(char *name);
+void CreateFile(char *name);
 
 /* Open the Nachos file "name", and return an "OpenFileId" that can 
  * be used to read and write to the file.

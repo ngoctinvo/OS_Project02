@@ -154,11 +154,11 @@ ExceptionHandler(ExceptionType which)
                     break;
                 }
 
-		case SC_RandomNum: {
-                    int ranNum = Random();
-                    machine->WriteRegister(2,ranNum);
-                    break;
-                }
+                case SC_RandomNum: {
+                            int ranNum = Random();
+                            machine->WriteRegister(2,ranNum);
+                            break;
+                        }
                 case SC_ReadChar: {
                     char character; // input char
                     int ok = gSynchConsole->Read(&character, 1); // check input
@@ -201,9 +201,255 @@ ExceptionHandler(ExceptionType which)
                     delete[] string;
                     break;
                 }
+                 case SC_Create: {
+                    int addr = machine->ReadRegister(4); 
+                    char *name = User2System(addr, 255); //get filename from user
+                    if (fileSystem->Create(name, 0) == true) {
+                        printf("Creation succeeds\n")
+                        machine->WriteRegister(2, 0);// return 0 if creation succeeds
+                    }
+                    else {
+                        printf("Creation fails\n")
+                        machine->WriteRegister(2, -1); // return -1 if creation fails
+                    }
+                    delete []name; 
+                    break;
+                }
+                case SC_Open: {
+                    int type = machine->ReadRegister(5); // get type of file (1-readonly or 0-readwrite)
+                    if (type != 0 && type != 1) {
+                        printf("Invalid File Type. Only 0 or 1 is accepted\n"); // Invalid file type -> return -1
+                        machine->WriteRegister(2, - 1); 
+                        break;
+                    }
+                    int addr = machine->ReadRegister(4); 
+                    char *name = User2System(addr, 255); // get filename from user
+                    if (strcmp(name, "stdin") == 0) { //read from console
+                        machine->WriteRegister(2, 0);
+                        delete[] name;
+                        break;
+                    }
+                    if (strcmp(name, "stdout") == 0) {//write to console
+                        machine->WriteRegister(2, 1);
+                        delete[] name;
+                        break;
+                    }
+                    
+                    
+                    int index = -1;
+                    for (int i = 0; i < 10; i++) //find a slot for the file to be opened
+                        if (fileSystem->file[i] == NULL) { 
+                            index = i; //position i is taken
+                            break;
+                        }
+                    if (index == -1) { //file[] is full, can not open 1 more file
+                        printf("Number of files opened has reached the limit\n")
+                        machine->WriteRegister(2, - 1);
+                        delete[] name;
+                        break;
+                    }
+                    
+                    fileSystem->file[index] = fileSystem->Open(name, type); //open file
+                    if (fileSystem->file[index] != NULL)
+                        machine->WriteRegister(2, index);//open successfully. return id of the file
+                    else 
+                    {
+                         printf("File is null\n")
+                        machine->WriteRegister(2, - 1);//file is null->return -1
+                    }
+                    delete[] name;
+                    break;
+                }
+                 case SC_Close: {
+                    int id = machine->ReadRegister(4);
+                    if (id < 2 || id > 9) { // Only 10 file in proccess. Closing Console output and input are not allowed
+                        printf("Invalid file id\n")
+                        machine->WriteRegister(2, - 1);
+                    }
+                    else {
+                        if (fileSystem->file[id] != NULL) { // close file and return 0
+                            delete fileSystem->file[id];
+                            fileSystem->file[id] = NULL;
+                            machine->WriteRegister(2, 0);
+                        }
+                        else 
+                        {
+                             printf("File is null. Fails to close\n")
+                            machine->WriteRegister(2, - 1); // file is null -> closing file fails 
+                        }
+                    }
+                    break;
+                }
+                case SC_Read: {
+                    int id = machine->ReadRegister(6);
+                    if (id < 0 || id == 1 || id > 9 || fileSystem->file[id] == NULL) {//Check file id 
+                        printf("File id is invalid or no file has been opened with this id\n")//
+                        machine->WriteRegister(2, - 1);//if not return -1
+                        break;
+                    }
+                    int addr = machine->ReadRegister(4);
+                    int leng = machine->ReadRegister(5);
+                    if (leng <= 0) { //check if length of buffer is valid, if not return -1
+                        printf("Buffer's length must be greater than zero\n")
+                        machine->WriteRegister(2, - 1);
+                        break;
+                    }
+                    char *buff = new char[leng + 1];
+                    int result;
+                    if (id == 0){
+                        result = gSynchConsole->Read(buff, leng);//read form console to buffer
+                    }
+                    else {
+                        result = fileSystem->file[id]->Read(buff, leng);//read from file to buffer
+                    }
+                    if (result < 0) {// fails to read. return -1
+                        machine->WriteRegister(2, - 1);
+                        delete[] buff;
+                        break;
+                    }
+                    else if (result == 0) { //reached end of file. return -2
+                        machine->WriteRegister(2, - 2);
+                        delete[] buff;
+                        break;
+                    }
+                    buff[result]='\0'; // add end-file token:'\0'
+                    System2User(addr, leng+1, buff); // transfer to user
+                    machine->WriteRegister(2, result);//return read contents
+                    delete[] buff;
+                    break;
+                }
+                case SC_Write: {
+                    int id = machine->ReadRegister(6);
+                    if (id < 0 || id == 0 || id > 9 || fileSystem->file[id] == NULL || fileSystem->file[id]->type == 1) {
+                        printf("File id is not for writing or file type is readonly\n")
+                        machine->WriteRegister(2, - 1);
+                        break;
+                    }
+                    int addr = machine->ReadRegister(4);
+                    int leng = machine->ReadRegister(5);
+                    if (leng <= 0) { //check if length of buffer is valid, if not return -1
+                        printf("Buffer's length must be greater than zero\n")
+                        machine->WriteRegister(2, - 1);
+                        break;
+                    }
+                    char *buff = User2System(addr, leng);//get contents from user
+                    int result;
+                    if (id == 1) result = gSynchConsole->Write(buff, leng);//write to console
+                    else result = fileSystem->file[id]->Write(buff, leng);//write to file
+                    if (result < 0) {
+                        machine->WriteRegister(2, - 1);//fails to write
+                        delete[] buff;
+                        break;
+                    }
+                    else if (result == 0) {
+                        machine->WriteRegister(2, - 2);//Reach end of file
+                        delete[] buff;
+                        break;
+                    }
+                    machine->WriteRegister(2, result);// return the result
+                    delete[] buff;
+                    break;
+                }
              
               
-              
+                case SC_Exec:
+                {
+                    int VirtualAddr = machine->ReadRegister(4);     // Đọc địa chỉ từ thanh ghi r4
+                   
+                    char *name = new char[256];
+                    name = User2System(VirtualAddr, 255);           // Lấy tên chương trình nạp vào Kernel
+
+                    int pid = pTab->ExecUpdate(name);           // ExecUpdate đã bao gồm check name == NULL và check openFile
+                    machine->WriteRegister(2, pid);
+                    delete[] name;
+                    break;
+                }
+                case SC_Join:
+                {
+                    int id = machine->ReadRegister(4);
+
+                    int result = pTab->JoinUpdate(id);
+                    machine->WriteRegister(2, result);
+
+                    break;
+                }
+
+                case SC_Exit:
+                {
+                    int exitcode = machine->ReadRegister(4);
+                    int result = pTab->ExitUpdate(exitcode);
+
+                    machine->WriteRegister(2, result);
+                    break;
+                }
+
+                case SC_CreateSemaphore: 
+                {
+                    int virtualAddr = machine->ReadRegister(4);
+                    int semval = machine->ReadRegister(5);
+
+                    char *name = new char[256];
+                    name = User2System(virtualAddr, 255);
+
+                    if(name == NULL)
+                    {
+                        printf("Not enough memory!!");
+                        machine->WriteRegister(2, -1);
+                        delete[] name;
+                        break;
+                    }
+
+                    int result = semTab->Create(name, semval);
+                    machine->WriteRegister(2, result);
+
+                    delete[] name;
+                    break;
+                }
+
+                case SC_Wait:
+                { 
+                    int virtualAddr = machine->ReadRegister(4);
+
+                    char *name = new char[256];
+                    name = User2System(virtualAddr, 255);
+
+                    if(name == NULL)
+                    {
+                        printf("Not enough memory!!");
+                        machine->WriteRegister(2, -1);
+                        delete[] name;
+                        break;
+                    }
+
+                    int result = semTab->Wait(name);
+                    machine->WriteRegister(2, result);
+
+                    delete[] name;
+                    break;
+                }
+
+                case SC_Signal: 
+                {
+                    int virtualAddr = machine->ReadRegister(4);
+
+                    char *name = new char[256];
+                    name = User2System(virtualAddr, 255);
+                   
+                    if(name == NULL)
+                    {
+                        printf("Not enough memory!!");
+                        machine->WriteRegister(2, -1);
+                        delete[] name;
+                        break;
+                    }
+
+                    int result = semTab->Signal(name);
+                    machine->WriteRegister(2, result);
+                    delete[] name;
+                    break;
+                }
+
+
                 default:
                     printf("Unexpected user mode exception %d %d\n", which, type);
 	            ASSERT(FALSE);

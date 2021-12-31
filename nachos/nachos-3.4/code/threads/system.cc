@@ -30,6 +30,11 @@ SynchDisk   *synchDisk;
 #ifdef USER_PROGRAM	// requires either FILESYS or FILESYS_STUB
 Machine *machine;	// user program memory and registers
 SynchConsole *gSynchConsole;
+
+Semaphore *addrLock;        // semaphore
+BitMap *gPhysPageBitMap;    // quản lý các frame
+STable *semTab;             // quản lý bằng semaphore
+PTable *pTab;               // quản lý bằng tiến trình
 #endif
 
 #ifdef NETWORK
@@ -151,6 +156,12 @@ Initialize(int argc, char **argv)
 #ifdef USER_PROGRAM
     machine = new Machine(debugUserProg);	// this must come first
 	gSynchConsole = new SynchConsole(); //create user console
+
+    addrLock = new Semaphore("AddrLock", 1);
+    gPhysPageBitMap = new BitMap(NumPhysPages);
+    semTab = new STable();
+    pTab = new PTable();
+
 #endif
 
 #ifdef FILESYS
