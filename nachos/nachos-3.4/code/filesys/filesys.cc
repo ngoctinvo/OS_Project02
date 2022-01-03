@@ -140,6 +140,17 @@ FileSystem::FileSystem(bool format)
         freeMapFile = new OpenFile(FreeMapSector);
         directoryFile = new OpenFile(DirectorySector);
     }
+    for (int i = 0; i < 10; i++)
+        file[i] = NULL;
+    Create("stdin", 0);
+    Create("stdout", 0);
+    file[0] = Open("stdin", 1);
+    file[1] = Open("stdout", 2);
+}
+
+FileSystem::~FileSystem() {
+    for (int i = 0; i < 10; i++)
+        if (file[i] != NULL) delete file[i];
 }
 
 //----------------------------------------------------------------------
@@ -228,16 +239,42 @@ OpenFile *
 FileSystem::Open(char *name)
 { 
     Directory *directory = new Directory(NumDirEntries);
-    OpenFile *openFile = NULL;
     int sector;
 
     DEBUG('f', "Opening file %s\n", name);
     directory->FetchFrom(directoryFile);
     sector = directory->Find(name); 
-    if (sector >= 0) 		
-	openFile = new OpenFile(sector);	// name was found in directory 
+    if (sector >= 0) {
+        for (int i = 2; i < 10; i++)
+            if (file[i] == NULL) {
+	        file[i] = new OpenFile(sector);	// name was found in directory 
+                delete directory;
+                return file[i];
+            }
+    }
     delete directory;
-    return openFile;				// return NULL if not found
+    return NULL;				// return NULL if not found
+}
+
+OpenFile *
+FileSystem::Open(char *name, int type)
+{ 
+    Directory *directory = new Directory(NumDirEntries);
+    int sector;
+
+    DEBUG('f', "Opening file %s\n", name);
+    directory->FetchFrom(directoryFile);
+    sector = directory->Find(name); 
+    if (sector >= 0) {
+        for (int i = 2; i < 10; i++)
+            if (file[i] == NULL) {
+	        file[i] = new OpenFile(sector);	// name was found in directory 
+                delete directory;
+                return file[i];
+            }
+    }
+    delete directory;
+    return NULL;				// return NULL if not found
 }
 
 //----------------------------------------------------------------------

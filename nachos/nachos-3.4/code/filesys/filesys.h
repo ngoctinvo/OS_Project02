@@ -41,9 +41,24 @@
 #ifdef FILESYS_STUB 		// Temporarily implement file system calls as 
 				// calls to UNIX, until the real file system
 				// implementation is available
+
+typedef int OpenFIleID;
+
 class FileSystem {
-  public:
-    FileSystem(bool format) {}
+    public:
+    FileSystem(bool format) {
+        for (int i = 0; i < 10; i++)
+            file[i] = NULL;
+        Create("stdin", 0);
+        Create("stdout", 0);
+        file[0] = Open("stdin", 1);
+        file[1] = Open("stdout", 2);
+    }
+
+    ~FileSystem() {
+        for (int i = 0; i < 10; i++)
+            if (file[i] != NULL) delete file[i];
+    }
 
     bool Create(char *name, int initialSize) { 
 	int fileDescriptor = OpenForWrite(name);
@@ -60,8 +75,17 @@ class FileSystem {
 	  return new OpenFile(fileDescriptor);
       }
 
+    OpenFile* Open(char *name, int type) {
+	  int fileDescriptor = OpenForReadWrite(name, FALSE);
+
+	  if (fileDescriptor == -1) return NULL;
+	  return new OpenFile(fileDescriptor, type);
+      }
+
     bool Remove(char *name) { return Unlink(name) == 0; }
 
+  public:
+   OpenFile *file[10];
 };
 
 #else // FILESYS
@@ -74,10 +98,14 @@ class FileSystem {
 					// the disk, so initialize the directory
     					// and the bitmap of free blocks.
 
+    ~FileSystem();
+
     bool Create(char *name, int initialSize);  	
 					// Create a file (UNIX creat)
 
     OpenFile* Open(char *name); 	// Open a file (UNIX open)
+
+    OpenFile* Open(char *name, int type); 	// Open a file (UNIX open)
 
     bool Remove(char *name);  		// Delete a file (UNIX unlink)
 
@@ -85,11 +113,12 @@ class FileSystem {
 
     void Print();			// List all the files and their contents
 
-  private:
+  public:
    OpenFile* freeMapFile;		// Bit map of free disk blocks,
 					// represented as a file
    OpenFile* directoryFile;		// "Root" directory -- list of 
 					// file names, represented as a file
+   OpenFile *file[10];
 };
 
 #endif // FILESYS

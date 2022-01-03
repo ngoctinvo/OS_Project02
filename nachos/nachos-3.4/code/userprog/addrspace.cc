@@ -62,22 +62,14 @@ SwapHeader (NoffHeader *noffH)
 
 AddrSpace::AddrSpace(OpenFile *executable)
 {
-    if (executable == NULL)
-    {
-    	printf("Unable to open file.\n");
-	    return ;
-    }
-
     NoffHeader noffH;
     unsigned int i, size;
 
     executable->ReadAt((char *)&noffH, sizeof(noffH), 0);
-    if ((noffH.noffMagic != NOFFMAGIC) && (WordToHost(noffH.noffMagic) == NOFFMAGIC))
+    if ((noffH.noffMagic != NOFFMAGIC) && 
+		(WordToHost(noffH.noffMagic) == NOFFMAGIC))
     	SwapHeader(&noffH);
-   
     ASSERT(noffH.noffMagic == NOFFMAGIC);
-
-    addrLock->P();
 
 // how big is address space?
     size = noffH.code.size + noffH.initData.size + noffH.uninitData.size 
@@ -86,7 +78,7 @@ AddrSpace::AddrSpace(OpenFile *executable)
     numPages = divRoundUp(size, PageSize);
     size = numPages * PageSize;
 
-    ASSERT(numPages <= NumPhysPages);		// check we're not trying
+    ASSERT(numPages <= gPhysPageBitMap->NumClear());		// check we're not trying
 						// to run anything too big --
 						// at least until we have
 						// virtual memory
@@ -94,10 +86,12 @@ AddrSpace::AddrSpace(OpenFile *executable)
     DEBUG('a', "Initializing address space, num pages %d, size %d\n", 
 					numPages, size);
 // first, set up the translation 
+// 
     pageTable = new TranslationEntry[numPages];
     for (i = 0; i < numPages; i++) {
 	pageTable[i].virtualPage = i;	// for now, virtual page # = phys page #
-	pageTable[i].physicalPage = i;
+	pageTable[i].physicalPage = gPhysPageBitMap->Find();
+        gPhysPageBitMap->Mark(pageTable[i].physicalPage);
 	pageTable[i].valid = TRUE;
 	pageTable[i].use = FALSE;
 	pageTable[i].dirty = FALSE;
@@ -126,22 +120,20 @@ AddrSpace::AddrSpace(OpenFile *executable)
 
 }
 
-AddrSpace::AddrSpace(char *filename)
-{
+AddrSpace::AddrSpace(char *filename) {
     NoffHeader noffH;
     unsigned int i, size, j;
-    unsigned int numCodePage, numDataPage;      // số trang cho phần code và phần initData
-    int lastCodePageSize, lastDataPageSize, firstDataPageSize, tempDataSize;   // kích thước ghi vào trang cuối Code, initData, và trang đầu của initData
-
+    unsigned int numCodePage, numDataPage;
+    int lastCodePageSize, lastDataPageSize, firstDataPageSize, tempDataSize;
     OpenFile *executable = fileSystem->Open(filename);
     
-    if (executable == NULL)
-    {
-        printf("Error opening file: %s", filename);
+    if (executable == NULL) {
+        printf("\nAddrspace::Error opening file: %s", filename);
+        //DEBUG(dbgFile, "\n Error opening file.");
         return;
     }
     
-    executable->ReadAt((char *)&noffH, sizeof(noffH), 0);       // Đọc header
+    executable->ReadAt((char *)&noffH, sizeof(noffH), 0);
     
     if ((noffH.noffMagic != NOFFMAGIC) && (WordToHost(noffH.noffMagic) == NOFFMAGIC))
         SwapHeader(&noffH);
@@ -152,7 +144,7 @@ AddrSpace::AddrSpace(char *filename)
 
     size = noffH.code.size + noffH.initData.size + noffH.uninitData.size + UserStackSize;
 
-    numPages = divRoundUp(size, PageSize);          // số trang tiến trình cần thiết
+    numPages = divRoundUp(size, PageSize);
     size = numPages * PageSize;
 
     if (numPages > gPhysPageBitMap->NumClear()) {
@@ -172,8 +164,8 @@ AddrSpace::AddrSpace(char *filename)
         pageTable[i].use = FALSE;
         pageTable[i].dirty = FALSE;
         pageTable[i].readOnly = FALSE;
-        // Xóa các trang này trên memory
         bzero(&(machine->mainMemory[pageTable[i].physicalPage*PageSize]), PageSize);
+        //printf("phyPage %d \n", pageTable[i].physicalPage);
     }
 
     addrLock->V();
@@ -194,19 +186,22 @@ AddrSpace::AddrSpace(char *filename)
     }
 
     for (i = 0; i < numCodePage; i++) {
-        executable->ReadAt(&(machine->mainMemory[noffH.code.virtualAddr]) + pageTable[i].physicalPage * PageSize, 
-        i < (numCodePage - 1) ? PageSize : lastCodePageSize, noffH.code.inFileAddr + i * PageSize);
+        executable->ReadAt(&(machine->mainMemory[noffH.code.virtualAddr]) + 
+pageTable[i].physicalPage * PageSize, i < (numCodePage - 1) ? PageSize : lastCodePageSize,
+noffH.code.inFileAddr + i * PageSize);
     }
 
     if (lastCodePageSize < PageSize) {
         if (firstDataPageSize > 0)
-            executable->ReadAt(&(machine->mainMemory[noffH.code.virtualAddr]) + (pageTable[i - 1].physicalPage * PageSize + lastCodePageSize), 
-            firstDataPageSize, noffH.initData.inFileAddr);
+            executable->ReadAt(&(machine->mainMemory[noffH.code.virtualAddr]) + 
+(pageTable[i - 1].physicalPage * PageSize + lastCodePageSize), firstDataPageSize, 
+noffH.initData.inFileAddr);
     }
     
     for (j = 0; j < numDataPage; j++) {
-        executable->ReadAt(&(machine->mainMemory[noffH.code.virtualAddr]) + pageTable[i].physicalPage * PageSize, 
-        j < (numDataPage - 1) ? PageSize : lastDataPageSize, noffH.initData.inFileAddr + j * PageSize + firstDataPageSize);
+        executable->ReadAt(&(machine->mainMemory[noffH.code.virtualAddr]) + 
+pageTable[i].physicalPage * PageSize, j < (numDataPage - 1) ? PageSize : lastDataPageSize,
+noffH.initData.inFileAddr + j * PageSize + firstDataPageSize);
         i++;
     }
 
@@ -221,9 +216,7 @@ AddrSpace::AddrSpace(char *filename)
 
 AddrSpace::~AddrSpace()
 {
-    for(int i = 0; i < numPages ; ++i)
-		gPhysPageBitMap->Clear(pageTable[i].physicalPage);
-
+   for (int i = 0; i < numPages; i++) gPhysPageBitMap->Clear(pageTable[i].physicalPage);
    delete pageTable;
 }
 
