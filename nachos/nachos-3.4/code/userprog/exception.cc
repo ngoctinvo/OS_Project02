@@ -155,26 +155,26 @@ void ExceptionHandler(ExceptionType which)
                 }
 
                 case SC_CreateFile: {
-		//Doc tham so name tu thanh ghi r4
+		            //Doc tham so name tu thanh ghi r4
                     int addr = machine->ReadRegister(4);
                     char *name = new char[256];
                     name = User2System(addr, 255);
-		//Neu ten file khong hop le -> bao loi, tra ve -1
-		    if (name==NULL || strlen(name)==0)
+		            //Neu ten file khong hop le -> bao loi, tra ve -1
+		            if (name==NULL || strlen(name)==0)
                     {
                        printf("File name is incorrect! \n");
                        machine->WriteRegister(2,-1);
-			delete[] name;
-			break;
+			        delete[] name;
+			        break;
                      
                     }
-		// Neu tao file that bai -> bao loi va tra ve -1
+		            // Neu tao file that bai -> bao loi va tra ve -1
                     if (fileSystem->Create(name, 0) == false) {
-			printf("Create file failed! \n");
+			        printf("Create file failed! \n");
                         machine->WriteRegister(2, -1);
 			
                     }
-			// Tao file thanhh cong -> tra ve 0
+			        // Tao file thanhh cong -> tra ve 0
                     else {
                         machine->WriteRegister(2, 0);
                     }
@@ -182,41 +182,41 @@ void ExceptionHandler(ExceptionType which)
                     break;
                 }
                 case SC_Open: {
-		//Doc tham so name tu r4, chuyen tu user space-> system space
+		            //Doc tham so name tu r4, chuyen tu user space-> system space
                     int addr = machine->ReadRegister(4);
                     char *name = User2System(addr, 255);
-		//Neu name nhap khong hop le -> bao loi, tra ve -1
+		            //Neu name nhap khong hop le -> bao loi, tra ve -1
                     if (name==NULL)
                     {
                         printf("Name of file is incorrect! \n");
                         machine->WriteRegister(2,-1);
-			delete[] name;
+			    delete[] name;
                         break;
                     }
-		//Doc tham so type tu thanh ghi r5
+		            //Doc tham so type tu thanh ghi r5
                     int type_file = machine->ReadRegister(5);
-		//nhap loai file khong hop le -> bao loi va tra ve -1
-		//type=0 doc&ghi, type=1 chi doc
+		            //nhap loai file khong hop le -> bao loi va tra ve -1
+		            //type=0 doc&ghi, type=1 chi doc
                     if (type_file != 0 && type_file != 1) {
                         printf("Type file error, only type=0 for read&write or type=1 for read! \n");
                         machine->WriteRegister(2, - 1);
-			//delete[] name;
+			        //delete[] name;
                         break;
                     }
 
-		// o 0 de danh cho console input
+		            // o 0 de danh cho console input
                     if (strcmp(name, "stdin") == 0) {
                         machine->WriteRegister(2, 0);
                         delete[] name;
                         break;
                     }
-		// o 1 de danh cho console output
+		            // o 1 de danh cho console output
                     if (strcmp(name, "stdout") == 0) {
                         machine->WriteRegister(2, 1);
                         delete[] name;
                         break;
                     }
-		//Kiem tra xem tai index nao file la NULL, neu ko tim duoc -> bao loi, tra ve -1
+		            //Kiem tra xem tai index nao file la NULL, neu ko tim duoc -> bao loi, tra ve -1
                     int index = -1;
                     for (int i = 0; i < 10; i++)
                         if (fileSystem->file[i] == NULL) {
@@ -228,81 +228,81 @@ void ExceptionHandler(ExceptionType which)
                         delete[] name;
                         break;
                     }
-		//Dung fileSystem de mo file
+		            //Dung fileSystem de mo file
                     fileSystem->file[index] = fileSystem->Open(name, type_file);
                     
-		// Neu file da mo khac Null -> thanh cong
-	 	    if (fileSystem->file[index] != NULL)
+		            // Neu file da mo khac Null -> thanh cong
+	 	            if (fileSystem->file[index] != NULL)
                         machine->WriteRegister(2, index);
-		//Neu file da mo ==null -> that bai, bao loi - tra ve -1
+		            //Neu file da mo ==null -> that bai, bao loi - tra ve -1
                     else {
-			printf("Open file failed! \n");
-			machine->WriteRegister(2, - 1);
-			}
+			            printf("Open file failed! \n");
+			            machine->WriteRegister(2, - 1);
+			        }
                     delete[] name;
                     break;
                 }
       	        case SC_Close: {
-		//Doc tham so id tu thanh ghi r4
+		            //Doc tham so id tu thanh ghi r4
                     int id = machine->ReadRegister(4);
-		//Kiem tra id file hop le hay ko -> bao loi, tra ve -1
+		            //Kiem tra id file hop le hay ko -> bao loi, tra ve -1
                     if (id < 2 || id > 9) {
-			printf("File ID is incorrect! \n");
+			            printf("File ID is incorrect! \n");
                         machine->WriteRegister(2, - 1);
                     }
                     else {
-		//Neu dong file thanh cong -> tra ve 0
+		                //Neu dong file thanh cong -> tra ve 0
                         if (fileSystem->file[id] != NULL) {
                             delete fileSystem->file[id];
                             fileSystem->file[id] = NULL;
                             machine->WriteRegister(2, 0);
                         } 
-		//neu dong file  that bai -> bao loi, tra ve -1
+		                //neu dong file  that bai -> bao loi, tra ve -1
                         else {
-			    printf("CLose file failed! \n");
-			    machine->WriteRegister(2, - 1);
-}
+			                printf("CLose file failed! \n");
+			                machine->WriteRegister(2, - 1);
+                        }
                     }
                     break;
                 }
 
            case SC_Read: {
-		//Doc tham so id tu thanh ghi r6
+		            //Doc tham so id tu thanh ghi r6
                     int id = machine->ReadRegister(6);
-		//Kiem tra id file co hop le khong -> neu khong bao loi tra ve -1
+		            //Kiem tra id file co hop le khong -> neu khong bao loi tra ve -1
                     if (id < 0 || id == 1 || id > 9 || fileSystem->file[id] == NULL) {
-			printf("ID file to read is incorrect! \n");
+			            printf("ID file to read is incorrect! \n");
                         machine->WriteRegister(2, - 1);
                         break;
                     }
                     int addr = machine->ReadRegister(4);
                     int charcount = machine->ReadRegister(5);
-		//Neu charcount nhap vao ko hop le -> bao loi, tra ve -1
+		            //Neu charcount nhap vao ko hop le -> bao loi, tra ve -1
                     if (charcount <= 0) {
-			printf("Char count of file is incorrect! \n");
+			            printf("Char count of file is incorrect! \n");
                         machine->WriteRegister(2, - 1);
                         break;
                     }
                     char *buff = new char[charcount + 1];
                     int result;
                     if (id == 0) 
-			result = gSynchConsole->Read(buff, charcount);
+			            result = gSynchConsole->Read(buff, charcount);
                     else 
-			result = fileSystem->file[id]->Read(buff, charcount);
-                //Neu doc file that bai -> bao loi, tra ve -1
-		    if (result < 0) {
-			printf("Read file failed! \n");
+			            result = fileSystem->file[id]->Read(buff, charcount);
+                        //Neu doc file that bai -> bao loi, tra ve -1
+		            if (result < 0) {
+			            printf("Read file failed! \n");
                         machine->WriteRegister(2, - 1);
                         delete[] buff;
                         break;
                     }
-		//Neu doc toi cuoi file -> tra ve -2
+		            //Neu doc toi cuoi file -> tra ve -2
                     else if (result == 0) {
                         machine->WriteRegister(2, - 2);
                         delete[] buff;
                         break;
                     }
-		//Ket thuc chuoi bang null
+		            //Ket thuc chuoi bang null
                     buff[result]='\0';
                     System2User(addr, charcount+1, buff); 
                     machine->WriteRegister(2, result);
@@ -311,34 +311,34 @@ void ExceptionHandler(ExceptionType which)
                 }
                 case SC_Write: {
                     int id = machine->ReadRegister(6);
-		//Kiem tra id file co hop le khong -> neu khong bao loi tra ve -1
+		            //Kiem tra id file co hop le khong -> neu khong bao loi tra ve -1
                     if (id < 0 || id == 0 || id > 9 || fileSystem->file[id] == NULL || fileSystem->file[id]->type == 1) {
-			printf("ID file to read is incorrect! \n");
+			            printf("ID file to read is incorrect! \n");
                         machine->WriteRegister(2, - 1);
                         break;
                     }
                     int addr = machine->ReadRegister(4);
                     int charcount = machine->ReadRegister(5);
-		//Neu charcount nhap vao ko hop le -> bao loi, tra ve -1
+		            //Neu charcount nhap vao ko hop le -> bao loi, tra ve -1
                     if (charcount <= 0) {
-			printf("Char count of file is incorrect! \n");
+			            printf("Char count of file is incorrect! \n");
                         machine->WriteRegister(2, - 1);
                         break;
                     }
                     char *buff = User2System(addr, charcount);
                     int result;
                     if (id == 1) 
-			result = gSynchConsole->Write(buff, charcount);
+			            result = gSynchConsole->Write(buff, charcount);
                     else 
-			result = fileSystem->file[id]->Write(buff, charcount);
-                //Neu doc file that bai -> bao loi, tra ve -1
-		    if (result < 0) {
-			printf("Read file failed! \n");
+			            result = fileSystem->file[id]->Write(buff, charcount);
+                    //Neu doc file that bai -> bao loi, tra ve -1
+		            if (result < 0) {
+			            printf("Read file failed! \n");
                         machine->WriteRegister(2, - 1);
                         delete[] buff;
                         break;
                     }
-		//Neu ghi toi cuoi file -> tra ve -2
+		            //Neu ghi toi cuoi file -> tra ve -2
                     else if (result == 0) {
                         machine->WriteRegister(2, - 2);
                         delete[] buff;
@@ -351,136 +351,136 @@ void ExceptionHandler(ExceptionType which)
        
               
                 case SC_Exec: {
-			//Doc tham so name tu thanh ghi r4
-			// tu user space -> system space
+			        //Doc tham so name tu thanh ghi r4
+			        // tu user space -> system space
                     int addr = machine->ReadRegister(4);
                     char *name = new char[256];
                     name = User2System(addr, 255);
 
-		  //Neu name == NULL -> bao loi, tra ve -1
-		    if (name == NULL) 
-		    {
-		    printf("Name is incorrect! \n");
-		    machine->WriteRegister(2,-1);
-		       break;	
-		    }
+		            //Neu name == NULL -> bao loi, tra ve -1
+		            if (name == NULL) 
+		            {
+		                printf("Name is incorrect! \n");
+		                machine->WriteRegister(2,-1);
+		                 break;	
+		            }
 
-			OpenFile* openfile=fileSystem->Open(name);
-		 //Neu mo file khong duoc -> bao loi, tra ve -1		    
-		    if (openfile==NULL)
-		    {
-		    printf("Cannot open this file! \n");
-		    machine->WriteRegister(2,-1);
-		       break;
-		    }
-		    delete openfile;
-		//Neu tat ca dieu kien thoa man, goi ham execUpdate
-		//THanh cong -> tra ve id
+			        OpenFile* openfile=fileSystem->Open(name);
+		            //Neu mo file khong duoc -> bao loi, tra ve -1		    
+		            if (openfile==NULL)
+		            {
+		                printf("Cannot open this file! \n");
+		                machine->WriteRegister(2,-1);
+		                break;
+		            }
+		            delete openfile;
+		            //Neu tat ca dieu kien thoa man, goi ham execUpdate
+		            //THanh cong -> tra ve id
                     int id = pTab->ExecUpdate(name);
                     machine->WriteRegister(2, id);
                     //delete[] name;
-		    break;
+		            break;
                 }
                 case SC_Join: {
-		//Lay tham so id tu thanh ghi r4
+		            //Lay tham so id tu thanh ghi r4
                     int id = machine->ReadRegister(4);
-		// SU dung pthuc JOinUpdate -> tra ve ket qua 
+		            // SU dung pthuc JOinUpdate -> tra ve ket qua 
                     int result = pTab->JoinUpdate(id);
                     machine->WriteRegister(2, result);
-		    break;
+		            break;
 
                 }
 
-  		case SC_Exit: {
-		//Lay tham so exitCode tu thanh ghi r4
+  		        case SC_Exit: {
+		            //Lay tham so exitCode tu thanh ghi r4
                     int exitcode = machine->ReadRegister(4);
-		//Neu exitcode = 0 la chuowng trinh thanh cong, nguoc lai thi co loi
+		            //Neu exitcode = 0 la chuowng trinh thanh cong, nguoc lai thi co loi
 
-		//Sdung phthuc ExitUpdate va tra ket qua ve thanh ghi r2
+		            //Sdung phthuc ExitUpdate va tra ket qua ve thanh ghi r2
                     int result = pTab->ExitUpdate(exitcode);
                     machine->WriteRegister(2, result);
-		    break;
+		            break;
                 }
                 case SC_CreateSemaphore: {
-		//Doc tham so name
+		            //Doc tham so name
                     int addr = machine->ReadRegister(4);
                     char *name = new char[256];
                     name = User2System(addr, 255);
-		//Doc tham so semval
+		            //Doc tham so semval
                     int semval = machine->ReadRegister(5);
 
-		//Kiem tra neu name khong hop le -> bao loi, tra ve -1
+		            //Kiem tra neu name khong hop le -> bao loi, tra ve -1
                     if (name == NULL)
                     {
                        printf("Name is incorrect! \n");
                        machine->WriteRegister(2,-1);
                        delete[] name;
-		       break;
+		            break;
                     }
-		//Sdung phuong thuc semTab->Create
+		            //Sdung phuong thuc semTab->Create
                     int result = semTab->Create(name, semval);
-		//Neu tao khong thanh cong -> bao loi , tra ve -1
+		            //Neu tao khong thanh cong -> bao loi , tra ve -1
                     if (result==-1)
                     {
                        machine->WriteRegister(2,-1);
                        delete[] name;
-		       break;
+		            break;
                     }
-		//Neu thanh cong, tra ve result
-		    delete[] name;
+		            //Neu thanh cong, tra ve result
+		            delete[] name;
                     machine->WriteRegister(2, result);
                      break;
                 }
                 case SC_Wait: {
-		//Doc tham so name, chuyen tu user space sang system space
+		            //Doc tham so name, chuyen tu user space sang system space
                     int addr = machine->ReadRegister(4);
                     char *name = new char[256];
                     name = User2System(addr, 255);
-		//Kiem tra name co hop le hay khong, neu khong -> bao loi , tra ve -1
-		if (name == NULL){
+		            //Kiem tra name co hop le hay khong, neu khong -> bao loi , tra ve -1
+		            if (name == NULL){
                        printf("Name is incorrect! \n");
                        machine->WriteRegister(2,-1);
                        delete[] name;
                        break;
                     }
-		//Su dung phuong thuc semTab->Wait
+		            //Su dung phuong thuc semTab->Wait
        
                     int result = semTab->Wait(name);
-		//Neu khong ton tai semaphore -> bao loi, tra ve -1
+		            //Neu khong ton tai semaphore -> bao loi, tra ve -1
                     if (result == -1) {
                        machine->WriteRegister(2,-1);
                        delete[] name;
-		     break;
+		            break;
                     }
                     delete[] name;
-		//Neu tat ca deu hop le, tra ve result
+		            //Neu tat ca deu hop le, tra ve result
                     machine->WriteRegister(2, result);
                      break;
                 }
                 case SC_Signal: {
-		//Doc tham so name tu thanh ghi r4
+		            //Doc tham so name tu thanh ghi r4
                     int addr = machine->ReadRegister(4);
                     char *name = new char[256];
                     name = User2System(addr, 255);
 
-		//Kiem tra name co hop le hay khong, neu khong -> bao loi , tra ve -1
-		if (name == NULL){
+		            //Kiem tra name co hop le hay khong, neu khong -> bao loi , tra ve -1
+		            if (name == NULL){
                        printf("Name is incorrect! \n");
                        machine->WriteRegister(2,-1);
                        delete[] name;
                        break;
                     }
-		//Su dung phuong thuc semTab->Signal
+		            //Su dung phuong thuc semTab->Signal
        
                     int result = semTab->Signal(name);
-		//Neu khong ton tai semaphore -> bao loi, tra ve -1
+		            //Neu khong ton tai semaphore -> bao loi, tra ve -1
                     if (result == -1) {
                        machine->WriteRegister(2,-1);
                        delete[] name;
                        break;  
                     }
-		    delete[] name;
-		//Thanh cong, tra ve result
+		            delete[] name;
+		            //Thanh cong, tra ve result
                     machine->WriteRegister(2, result);
                      break;
                 }
